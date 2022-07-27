@@ -155,6 +155,8 @@ end
 
 ## Pattern Matching
 
+Pattern matching is one of Elixirs' features that makes it so nice to work with. You'll see why in a minute.
+
 In Elixir the `=` is not an assignment-operator but a match-operator.
 
 ```elixir
@@ -248,7 +250,19 @@ end
 MyMath.mul(10, 3)
 ```
 
-Again, using pattern matching in function calls allow us to stream line code without using `if/else` constructs.
+Functions are identified based on their number of arguments (arity). Meaning that the function is executed that expects the number of arguments that you pass it.
+
+```elixir
+defmodule ArityExample do
+  def passing_wrong_number(), do: "No arguments"
+  def passing_wrong_number(one), do: one
+  def passing_wrong_number(one, two), do: one + two
+end
+
+ArityExample.passing_wrong_number()
+```
+
+Pattern matching can also be used in function calls and allows us to stream line code without using `if/else` constructs.
 
 ```elixir
 defmodule Factorial do
@@ -258,7 +272,7 @@ end
 ```
 
 ```elixir
-Factorial.of(10)
+Factorial.of(0)
 ```
 
 When pattern matching is not enough we can use guard clauses to decide which function to call based on the type and other characteristics of the arguments.
@@ -276,8 +290,6 @@ end
 
 Bar.allowed_to_drink(%{age: 18})
 ```
-
-Functions are identified based on their number of arguments (arity).
 
 ```elixir
 defmodule Field do
@@ -340,9 +352,17 @@ A pipe in Elixir always inserts the result of an expression as the first paramet
 
 <!-- livebook:{"branch_parent_index":0} -->
 
-## Processes
+## The actor model
 
-When talking about a process in Elixir we don't mean a process on the host machine, but a process in the Erlang VM.
+One of the biggest benefits of Elixir is how it approaches concurrency. Because of the Erlang VM, concurrent programming is a lot more straightforward than you'd expect.
+
+The concurrency model relies on Actors, a self-contained process that talks to other processes by sending messages. Each process has its own inbox that it can read messages from.
+
+Elixir provides us with a number of abstractions that allow us to work with these processes, but we'll only cover the `Task` and `GenServer` modules.
+
+## Spawning a process
+
+There are no concrete rules that you have to follow in order to spawn your code in a separate process.
 
 ```elixir
 defmodule Greeter do
@@ -354,12 +374,16 @@ end
 Greeter.greet()
 ```
 
+`spawn/3` lets us _spawn_ new processes.
+
 ```elixir
 spawn(Greeter, :greet, [])
 ```
 
+With a little bit of extra code we can communicate with our newly minted process. The `receive` block enables a process to read from its inbox and by using `send/2` we can send messages to other processes.
+
 ```elixir
-defmodule Greeter2 do
+defmodule Greeter do
   def greet() do
     receive do
       {sender, msg} ->
@@ -371,11 +395,11 @@ end
 ```
 
 ```elixir
-pid = spawn(Greeter2, :greet, [])
+pid = spawn(Greeter, :greet, [])
 ```
 
 ```elixir
-send(pid, {self(), "World"})
+send(pid, {self(), "World!"})
 ```
 
 ```elixir
@@ -386,9 +410,11 @@ end
 Process.alive?(pid)
 ```
 
-## Tasks
+## The Task abstraction
 
 Tasks are one of the ways that you can do asynchronous processing in Elixir. Each Task will run in its own separate process.
+
+Most commonly tasks are used to convert sequential code into concurrent code and they communicate little to not at all with other processes.
 
 ```elixir
 expensive = fn ->
@@ -409,14 +435,14 @@ Because processes are so lightweight in Elixir we can spawn thousands and not ev
 
 ```elixir
 defmodule Parallel do
-  def pmap(collection, fun) do
+  def map(collection, fun) do
     collection
     |> Enum.map(&Task.async(fn -> fun.(&1) end))
     |> Enum.map(&Task.await/1)
   end
 end
 
-Parallel.pmap(1..1000, fn n -> n * 2 end)
+Parallel.map(1..1000, fn n -> n * 2 end)
 ```
 
 ## GenServer
@@ -469,67 +495,11 @@ GenServer.cast(pid, :increment)
 GenServer.call(pid, :current_value)
 ```
 
-The last examples seem horrible to work with, but we can do better.
+You can wrap the above calls to the `GenServer` in your implementation for a more friendly API.
 
-```elixir
-defmodule Counter2 do
-  @behaviour GenServer
+## Supervision
 
-  ###
-  # Public API
-  ###
-  def start_link() do
-    GenServer.start_link(__MODULE__, 0, name: __MODULE__)
-  end
-
-  def increment() do
-    GenServer.cast(__MODULE__, :increment)
-  end
-
-  def decrement() do
-    GenServer.cast(__MODULE__, :decrement)
-  end
-
-  def current_value() do
-    GenServer.call(__MODULE__, :current_value)
-  end
-
-  ###
-  # Private API
-  ###
-  @impl true
-  def init(_) do
-    {:ok, 0}
-  end
-
-  @impl true
-  def handle_cast(:increment, state) do
-    {:noreply, state + 1}
-  end
-
-  @impl true
-  def handle_cast(:decrement, state) do
-    {:noreply, state - 1}
-  end
-
-  @impl true
-  def handle_call(:current_value, _from, state) do
-    {:reply, state, state}
-  end
-end
-```
-
-```elixir
-Counter2.start_link()
-```
-
-```elixir
-Counter2.increment()
-```
-
-```elixir
-Counter2.current_value()
-```
+All of these background processes are fun and all, but what happens if they crash?
 
 ## The End
 
