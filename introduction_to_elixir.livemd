@@ -1,0 +1,549 @@
+# Introduction to Elixir
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.6.1"}
+])
+
+import IEx.Helpers
+```
+
+## What is Elixir
+
+* Elixir is a functional programming language
+* Built on top of the Erlang VM (BEAM)
+* Full inter-op with Erlang
+* Ruby-like syntax
+* Actor-model for concurrency
+* Everything is an expression
+* First public release in 2012
+* Most recent release 1.13.4 in April 2022
+* Language is currently considered feature complete
+* No plans for another major release
+* Instead working on building out the eco-system (e.g. Machine learning)
+
+## The basics
+
+<!-- livebook:{"branch_parent_index":1} -->
+
+## Types
+
+Elixir has all of the types that you'd expect a language to have _and_ some that aren't common.
+
+```elixir
+i('Castor')
+```
+
+```elixir
+i("Castor")
+```
+
+```elixir
+i([1, 2, 3, 4, 5])
+```
+
+```elixir
+i(%{company: "Castor", address: "George Westinghousestraat 2"})
+```
+
+```elixir
+i(:castor)
+```
+
+```elixir
+i({1, 2})
+```
+
+```elixir
+i(self())
+```
+
+## Operators
+
+* Boolean operators (`or`, `and`, `not`)
+* Relaxed boolean operators (`||`, `&&`, `!`)
+* Aritmetic operators (`+`, `-`, `/`, `*`)
+* Join operators (`<>`, `++`, `--`)
+* The `in` operator
+
+Comparisons in Elixir are not strict, you can compare values of different types. If the types are the same or compatible the comparison uses natural orderding.
+
+When not compatible the comparison follows the rule:
+
+<!-- livebook:{"break_markdown":true} -->
+
+```mermaid
+flowchart RL
+   A[binary] ==> B[list] ==> C[map] ==> D[tuple] ==> E[pid] ==> F[port] ==> G[function] ==> H[reference] ==> I[atom] ==> J[number]
+```
+
+```elixir
+1 == 1.0
+```
+
+```elixir
+5 > 2.1
+```
+
+```elixir
+a = 10
+b = 11
+c = "Castor"
+d = "Castor"
+
+IO.inspect(a <= b)
+IO.inspect(a >= b)
+IO.inspect(c === d)
+IO.inspect(true and false)
+
+Kino.nothing()
+```
+
+```elixir
+5 * 5
+```
+
+```elixir
+[1, 2] ++ [3, 4]
+```
+
+```elixir
+"Ca" <> "stor"
+```
+
+## Control Flow
+
+Remember, in Elixir _everything_ is an expression. This includes the things that we are used to interpret as statements in other languages like PHP.
+
+```elixir
+if 1 === 1 do
+  "Yes!"
+else
+  "No"
+end
+```
+
+```elixir
+value = false
+
+unless value do
+  "Castor!"
+end
+```
+
+```elixir
+cond do
+  1 + 10 == 2 ->
+    "Never here"
+
+  true ->
+    "Always here"
+end
+```
+
+```elixir
+value = 12
+
+case value do
+  12 ->
+    "Yep, that is twelve"
+
+  n ->
+    n
+end
+```
+
+## Pattern Matching
+
+In Elixir the `=` is not an assignment-operator but a match-operator.
+
+```elixir
+x = 1
+x
+```
+
+This is a valid expression because `x` is bound to `1`
+
+```elixir
+1 = x
+```
+
+A `MatchError` will be raised because the right-hand value is `1`
+
+```elixir
+2 = x
+```
+
+The pin `^` operator is used to access previously bound values
+
+```elixir
+^x = 1
+```
+
+You can use the match operator to destructure more complex data types as well.
+
+```elixir
+person = %{first_name: "Jane", last_name: "Doe"}
+
+%{first_name: first_name} = person
+
+first_name
+```
+
+```elixir
+{1, b, 3} = {1, 2, 3}
+
+b
+```
+
+```elixir
+list = [10, 20, 30]
+
+[head | tail] = list
+
+IO.inspect(head)
+IO.inspect(tail)
+
+Kino.nothing()
+```
+
+## Functions
+
+Functions are the bread and butter of Elixir and the building blocks of everything that you'll build.
+
+```elixir
+sum = fn a, b -> a + b end
+
+sum.(1, 2)
+```
+
+An anonymous function can have multiple bodies and based on which pattern matches the body is evaluated.
+
+```elixir
+hello = fn
+  "Castor" = name -> "Hi, " <> name <> "!"
+  name -> "Hello, " <> name <> "!"
+end
+
+hello.("Castor")
+```
+
+```elixir
+hello.("Fred")
+```
+
+## Modules
+
+Projects are organized in Modules. This is the only way to write named functions. Modules can't hold state like classes in PHP can.
+
+```elixir
+defmodule MyMath do
+  def mul(a, b) do
+    a * b
+  end
+end
+```
+
+```elixir
+MyMath.mul(10, 3)
+```
+
+Again, using pattern matching in function calls allow us to stream line code without using `if/else` constructs.
+
+```elixir
+defmodule Factorial do
+  def of(0), do: 1
+  def of(n), do: n * of(n - 1)
+end
+```
+
+```elixir
+Factorial.of(10)
+```
+
+When pattern matching is not enough we can use guard clauses to decide which function to call based on the type and other characteristics of the arguments.
+
+```elixir
+defmodule Bar do
+  def allowed_to_drink(%{age: age}) when age >= 18 do
+    "Yes"
+  end
+
+  def allowed_to_drink(_) do
+    "No"
+  end
+end
+
+Bar.allowed_to_drink(%{age: 18})
+```
+
+Functions are identified based on their number of arguments (arity).
+
+```elixir
+defmodule Field do
+  defstruct [:type, :label]
+
+  def new(:number), do: %Field{type: :number}
+  def new(:text), do: %Field{type: :text}
+
+  def new(:number, label), do: %Field{type: :number, label: label}
+
+  def change_type(%Field{type: :number} = field, :text) do
+    %Field{field | type: :text}
+  end
+
+  def change_type(%Field{type: :text} = field, :number) do
+    %Field{field | type: :number}
+  end
+end
+
+field = Field.new(:number, "Age")
+Field.change_type(field, :text)
+```
+
+Elixir is a tail call optimized language. This means that when you call the current function again as the final action in that function no new frame will be allocated on the stack.
+
+```elixir
+defmodule Factorial do
+  def of(n), do: _of(n, 1)
+  defp _of(0, acc), do: acc
+  defp _of(n, acc), do: _of(n - 1, acc * n)
+end
+```
+
+```elixir
+Factorial.of(10)
+```
+
+## Pipe operator
+
+Pipes (`|>`) let you streamline your code into a more readable format.
+
+For example when writing nested function calls. Passing the outcome of a function into the next.
+
+```elixir
+collection = Enum.map([1, 2, 3], &(&1 * 2))
+Enum.max(collection)
+```
+
+```elixir
+Enum.max(Enum.map([1, 2, 3], &(&1 * 2)))
+```
+
+A pipe in Elixir always inserts the result of an expression as the first parameter of the next function invocation.
+
+```elixir
+[1, 2, 3]
+|> Enum.map(&(&1 * 2))
+|> Enum.max()
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Processes
+
+When talking about a process in Elixir we don't mean a process on the host machine, but a process in the Erlang VM.
+
+```elixir
+defmodule Greeter do
+  def greet(), do: IO.puts("Hello")
+end
+```
+
+```elixir
+Greeter.greet()
+```
+
+```elixir
+spawn(Greeter, :greet, [])
+```
+
+```elixir
+defmodule Greeter2 do
+  def greet() do
+    receive do
+      {sender, msg} ->
+        send(sender, {:ok, "Hello #{msg}"})
+        greet()
+    end
+  end
+end
+```
+
+```elixir
+pid = spawn(Greeter2, :greet, [])
+```
+
+```elixir
+send(pid, {self(), "World"})
+```
+
+```elixir
+receive do
+  {:ok, message} -> IO.puts(message)
+end
+
+Process.alive?(pid)
+```
+
+## Tasks
+
+Tasks are one of the ways that you can do asynchronous processing in Elixir. Each Task will run in its own separate process.
+
+```elixir
+expensive = fn ->
+  :timer.sleep(2_000)
+  "Hello!"
+end
+
+pid = Task.async(expensive)
+
+# Do some other stuff here
+
+result = Task.await(pid)
+
+result
+```
+
+Because processes are so lightweight in Elixir we can spawn thousands and not even break a sweat.
+
+```elixir
+defmodule Parallel do
+  def pmap(collection, fun) do
+    collection
+    |> Enum.map(&Task.async(fn -> fun.(&1) end))
+    |> Enum.map(&Task.await/1)
+  end
+end
+
+Parallel.pmap(1..1000, fn n -> n * 2 end)
+```
+
+## GenServer
+
+`GenServer` is a behaviour for implementing the server side of a client-server relationship. A GenServer is a process like any other.
+
+A `GenServer` implementation consists of two parts; the client API and the server side callbacks.
+
+There are three types of callbacks
+
+* `handle_cast` for asynchronous operations
+* `handle_call` for synchronous operations
+* `handle_info` for all other types of messages a server could receive
+
+```elixir
+defmodule Counter do
+  @behaviour GenServer
+
+  @impl true
+  def init(_) do
+    {:ok, 0}
+  end
+
+  @impl true
+  def handle_cast(:increment, state) do
+    {:noreply, state + 1}
+  end
+
+  @impl true
+  def handle_cast(:decrement, state) do
+    {:noreply, state - 1}
+  end
+
+  @impl true
+  def handle_call(:current_value, _from, state) do
+    {:reply, state, state}
+  end
+end
+```
+
+```elixir
+{:ok, pid} = GenServer.start_link(Counter, [])
+```
+
+```elixir
+GenServer.cast(pid, :increment)
+```
+
+```elixir
+GenServer.call(pid, :current_value)
+```
+
+The last examples seem horrible to work with, but we can do better.
+
+```elixir
+defmodule Counter2 do
+  @behaviour GenServer
+
+  ###
+  # Public API
+  ###
+  def start_link() do
+    GenServer.start_link(__MODULE__, 0, name: __MODULE__)
+  end
+
+  def increment() do
+    GenServer.cast(__MODULE__, :increment)
+  end
+
+  def decrement() do
+    GenServer.cast(__MODULE__, :decrement)
+  end
+
+  def current_value() do
+    GenServer.call(__MODULE__, :current_value)
+  end
+
+  ###
+  # Private API
+  ###
+  @impl true
+  def init(_) do
+    {:ok, 0}
+  end
+
+  @impl true
+  def handle_cast(:increment, state) do
+    {:noreply, state + 1}
+  end
+
+  @impl true
+  def handle_cast(:decrement, state) do
+    {:noreply, state - 1}
+  end
+
+  @impl true
+  def handle_call(:current_value, _from, state) do
+    {:reply, state, state}
+  end
+end
+```
+
+```elixir
+Counter2.start_link()
+```
+
+```elixir
+Counter2.increment()
+```
+
+```elixir
+Counter2.current_value()
+```
+
+## The End
+
+There's a lot of stuff that we haven't covered. Some of the more advanced stuff like Protocols, macros, etc.
+
+If you want to learn more about Elixir the following books are very good introductions and both will go further and deeper than this session.
+
+* Programming Elixir
+* Elixir in Action
+
+Both are available through learnerbly.
+
+I'm already thinking about a follow-up session that would cover a specific part of the Elixir eco-system.
+
+Let me know what you would be most interested in? E.g. using Elixir to build web applications, machine learning applications, or concurrent data processing.
+
+## Questions?
