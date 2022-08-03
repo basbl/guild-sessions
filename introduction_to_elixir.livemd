@@ -350,6 +350,34 @@ A pipe in Elixir always inserts the result of an expression as the first paramet
 |> Enum.max()
 ```
 
+If you combine the above with what we've learned previously you can unlock some powerful ways to structure your code. The below is a simplified example of railway oriented programming
+
+```elixir
+cart = fn ->
+  {:ok,
+   [
+     %{name: "Pen", price: 10},
+     %{name: "Paper", price: 5}
+   ]}
+end
+
+calculate_total = fn line_items ->
+  price =
+    get_in(line_items, [Access.all(), :price])
+    |> Enum.sum()
+
+  {:ok, price}
+end
+
+with {:ok, line_items} <- cart.(),
+     {:ok, total_price} <- calculate_total.(line_items) do
+  {:ok, total_price}
+else
+  {:error, _} ->
+    "Something went wrong"
+end
+```
+
 <!-- livebook:{"branch_parent_index":0} -->
 
 ## The actor model
@@ -461,6 +489,26 @@ There are three types of callbacks
 defmodule Counter do
   @behaviour GenServer
 
+  def start_link() do
+    GenServer.start_link(__MODULE__, [], name: __MODULE__)
+  end
+
+  def increment() do
+    GenServer.cast(__MODULE__, :increment)
+  end
+
+  def decrement() do
+    GenServer.cast(__MODULE__, :decrement)
+  end
+
+  def current_value() do
+    GenServer.call(__MODULE__, :current_value)
+  end
+
+  def stop() do
+    GenServer.stop(__MODULE__)
+  end
+
   @impl true
   def init(_) do
     {:ok, 0}
@@ -484,22 +532,50 @@ end
 ```
 
 ```elixir
-{:ok, pid} = GenServer.start_link(Counter, [])
+Counter.start_link()
 ```
 
 ```elixir
-GenServer.cast(pid, :increment)
+Counter.increment()
 ```
 
 ```elixir
-GenServer.call(pid, :current_value)
+Counter.current_value()
+```
+
+```elixir
+Counter.stop()
 ```
 
 You can wrap the above calls to the `GenServer` in your implementation for a more friendly API.
 
 ## Supervision
 
-All of these background processes are fun and all, but what happens if they crash?
+All of these background processes are fun and all, but what happens if they crash? The Elixir way tells you to not worry about crashed, but instead making sure the overall application keeps running.
+
+In the Elixir world Supervisors perform all of this process monitoring and restarting.
+
+```elixir
+Kino.start_child(%{
+  id: Counter,
+  start: {Counter, :start_link, []},
+  restart: :permanent
+})
+```
+
+```elixir
+Counter.increment()
+```
+
+```elixir
+Counter.current_value()
+```
+
+```elixir
+Counter.stop()
+```
+
+There are various different strategies available depending on your use-case. We've covered only a fraction of the power of supervisors. You're forced to think about reliability and state when you're designing your application.
 
 ## The End
 
