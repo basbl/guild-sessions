@@ -451,7 +451,7 @@ end
 Parallel.map(1..1000, fn n -> n * 2 end)
 ```
 
-## OTP
+## Erlang/OTP
 
 OTP stands for "Open Telecom Platform" and reveals the origin of Erlang in the Telecom industry. In short it's a collection of tools and behaviours that Elixir has inherited from Erlang.
 
