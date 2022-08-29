@@ -2,7 +2,7 @@
 
 ```elixir
 Mix.install([
-  {:kino, "~> 0.6.1"}
+  {:kino, "~> 0.6.2"}
 ])
 
 import IEx.Helpers
@@ -291,28 +291,6 @@ end
 Bar.allowed_to_drink(%{age: 18})
 ```
 
-```elixir
-defmodule Field do
-  defstruct [:type, :label]
-
-  def new(:number), do: %Field{type: :number}
-  def new(:text), do: %Field{type: :text}
-
-  def new(:number, label), do: %Field{type: :number, label: label}
-
-  def change_type(%Field{type: :number} = field, :text) do
-    %Field{field | type: :text}
-  end
-
-  def change_type(%Field{type: :text} = field, :number) do
-    %Field{field | type: :number}
-  end
-end
-
-field = Field.new(:number, "Age")
-Field.change_type(field, :text)
-```
-
 Elixir is a tail call optimized language. This means that when you call the current function again as the final action in that function no new frame will be allocated on the stack.
 
 ```elixir
@@ -473,6 +451,14 @@ end
 Parallel.map(1..1000, fn n -> n * 2 end)
 ```
 
+## OTP
+
+OTP stands for "Open Telecom Platform" and reveals the origin of Erlang in the Telecom industry. In short it's a collection of tools and behaviours that Elixir has inherited from Erlang.
+
+One of the key items in the toolbox are processses. We've already covered a small part of it but now we're gonna dive in some more advanced components.
+
+<!-- livebook:{"branch_parent_index":12} -->
+
 ## GenServer
 
 `GenServer` is a behaviour for implementing the server side of a client-server relationship. A GenServer is a process like any other.
@@ -549,42 +535,196 @@ Counter.stop()
 
 You can wrap the above calls to the `GenServer` in your implementation for a more friendly API.
 
-## Supervision
+## Supervisors
 
 All of these background processes are fun and all, but what happens if they crash? The Elixir way tells you to not worry about crashed, but instead making sure the overall application keeps running.
 
-In the Elixir world Supervisors perform all of this process monitoring and restarting.
+In the Elixir world supervisors are responsible for starting, stopping, crash recovery, and monitoring processes.
+
+One of the available types of supervisors is the `DynamicSupervisor`. This supervisor is useful in scenarios where you want to spawn a GenServer on demand e.g. games.
+
+Let's first start a `Registry` for these processes because in this case we want them to be uniquely identifiable by name.
 
 ```elixir
-Kino.start_child(%{
-  id: Counter,
-  start: {Counter, :start_link, []},
-  restart: :permanent
-})
+Kino.start_child({Registry, keys: :unique, name: Registry.Game})
+```
+
+Next we'll build our Game `GenServer`, it won't be doing much here but imagine that you're building a multiplayer game and this process is responsible for keeping state about that specific instance of a game. Like the state of a gameboard and the players participating in that game.
+
+```elixir
+defmodule Game do
+  use GenServer
+  require Logger
+
+  def start_link(name) do
+    Logger.debug("Starting game with name #{name}")
+    GenServer.start_link(__MODULE__, name, name: via_tuple(name))
+  end
+
+  def via_tuple(name), do: {:via, Registry, {Registry.Game, name}}
+
+  ###
+  # Callbacks
+  ###
+  def init(name) do
+    Process.flag(:trap_exit, true)
+
+    {:ok, %{name: name}}
+  end
+
+  def child_spec(name) do
+    %{
+      id: __MODULE__,
+      start: {__MODULE__, :start_link, [name]},
+      restart: :transient
+    }
+  end
+
+  def handle_info(_msg, state), do: {:noreply, state}
+
+  def terminate(_reason, state) do
+    Logger.debug("Terminating")
+
+    state
+  end
+end
+```
+
+We now have a `GenServer` that is responsible for keeping state about a game. But how we do we keep track of these games? That's where the Supervisor comes in, and in this case the `DynamicSupervisor`
+
+```elixir
+defmodule GamesSupervisor do
+  use DynamicSupervisor
+
+  alias Game
+
+  def start_link(_opts) do
+    DynamicSupervisor.start_link(__MODULE__, :ok, name: __MODULE__)
+  end
+
+  def start_game(name) do
+    spec = {Game, name}
+    DynamicSupervisor.start_child(__MODULE__, spec)
+  end
+
+  def init(:ok) do
+    DynamicSupervisor.init(strategy: :one_for_one)
+  end
+
+  def stop_game(name) do
+    DynamicSupervisor.terminate_child(__MODULE__, pid_from_name(name))
+  end
+
+  defp pid_from_name(name) do
+    name
+    |> Game.via_tuple()
+    |> GenServer.whereis()
+  end
+end
+```
+
+Let's start the supervisor.
+
+```elixir
+Kino.start_child(GamesSupervisor)
+```
+
+We can see that it doesn't have any children yet.
+
+```elixir
+Supervisor.count_children(GamesSupervisor)
+```
+
+But this will change when we start some games.
+
+```elixir
+GamesSupervisor.start_game("my_game_1")
+GamesSupervisor.start_game("my_game_2")
+GamesSupervisor.start_game("my_game_3")
+GamesSupervisor.start_game("my_game_4")
+```
+
+If we create a visual representation of our supervision tree we can see the newly created children.
+
+```elixir
+Kino.Process.sup_tree(GamesSupervisor)
+```
+
+Let's count our children again.
+
+```elixir
+Supervisor.count_children(GamesSupervisor)
+```
+
+We can also get more detailed information about them.
+
+```elixir
+Supervisor.which_children(GamesSupervisor)
+```
+
+If we want to inspect or debug state we can use the Erlang `:sys` module.
+
+```elixir
+via = Game.via_tuple("my_game_1")
+
+:sys.get_state(via)
+```
+
+So what happens if a game crashed?
+
+```elixir
+game_pid = GenServer.whereis(via)
+
+Process.exit(game_pid, :boom)
+```
+
+Our supervisor immediately restarts it and has even given it back its original process id.
+
+```elixir
+Process.alive?(game_pid)
 ```
 
 ```elixir
-Counter.increment()
+:sys.get_state(game_pid)
 ```
 
 ```elixir
-Counter.current_value()
+Kino.Process.sup_tree(GamesSupervisor)
+```
+
+Our games supervisor can also stop a game and because it stopped normally it won't be restarted.
+
+```elixir
+GamesSupervisor.stop_game("my_game_1")
 ```
 
 ```elixir
-Counter.stop()
+Kino.Process.sup_tree(GamesSupervisor)
+```
+
+```elixir
+GamesSupervisor.stop_game("my_game_2")
+GamesSupervisor.stop_game("my_game_3")
+GamesSupervisor.stop_game("my_game_4")
+```
+
+```elixir
+Supervisor.count_children(GamesSupervisor)
 ```
 
 There are various different strategies available depending on your use-case. We've covered only a fraction of the power of supervisors. You're forced to think about reliability and state when you're designing your application.
 
+This ia also just a small part of the tools available with OTP. There's also a built in term storage (ETS), a dbms (Mnesia), and plenty of different types of behaviours.
+
 ## The End
 
-There's a lot of stuff that we haven't covered. Some of the more advanced stuff like Protocols, macros, etc.
+There's a lot of stuff that we haven't covered. Some of the more advanced stuff like protocols, macros, etc.
 
 If you want to learn more about Elixir the following books are very good introductions and both will go further and deeper than this session.
 
 * Programming Elixir
 * Elixir in Action
+* https://elixir-lang.org/
 
 Both are available through learnerbly.
 
