@@ -366,6 +366,36 @@ else
 end
 ```
 
+## Working with Enumerables
+
+You'll be working with lists and other enumerables a lot in Elixir so like for most data types there are specialized modules to work with them. The following is just a small sample.
+
+```elixir
+h(Enum)
+```
+
+But what if you have a big list of file?
+
+```elixir
+1..10_000_000
+|> Enum.map(fn x -> x * x end)
+|> Enum.filter(fn x -> rem(x, 2) == 0 end)
+|> Enum.take(5)
+```
+
+```elixir
+h(Stream)
+```
+
+```elixir
+my_stream =
+  1..10_000_000
+  |> Stream.map(fn x -> x * x end)
+  |> Stream.filter(fn x -> rem(x, 2) == 0 end)
+
+# my_stream |> Enum.take(5)
+```
+
 <!-- livebook:{"branch_parent_index":0} -->
 
 ## The actor model
@@ -467,7 +497,7 @@ OTP stands for "Open Telecom Platform" and reveals the origin of Erlang in the T
 
 One of the key items in the toolbox are processses. We've already covered a small part of it but now we're gonna dive in some more advanced components.
 
-<!-- livebook:{"branch_parent_index":12} -->
+<!-- livebook:{"branch_parent_index":13} -->
 
 ## GenServer
 
@@ -485,6 +515,9 @@ There are three types of callbacks
 defmodule Counter do
   @behaviour GenServer
 
+  ###
+  # Public API
+  ###
   def start_link() do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
@@ -505,6 +538,9 @@ defmodule Counter do
     GenServer.stop(__MODULE__)
   end
 
+  ###
+  # Callbacks
+  ###
   @impl true
   def init(_) do
     {:ok, 0}
@@ -542,8 +578,6 @@ Counter.current_value()
 ```elixir
 Counter.stop()
 ```
-
-You can wrap the above calls to the `GenServer` in your implementation for a more friendly API.
 
 ## Supervisors
 
