@@ -788,8 +788,8 @@ The books are available through learnerbly. There are plenty of books written ab
 * https://livebook.dev/
 * https://exercism.org/
 
-I'm already thinking about a follow-up session that would cover a specific part of the Elixir eco-system.
+I'm already thinking about a follow-up session that would cover a specific part of the Elixir eco-system and allowing us to go more in-dept.
 
-Let me know what you would be most interested in? E.g. using Elixir to build web applications, machine learning applications, or concurrent data processing.
+Let me know what you would be most interested in! E.g. using Elixir to build web applications, machine learning applications, or concurrent data processing.
 
 ## Questions?
