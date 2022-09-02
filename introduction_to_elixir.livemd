@@ -374,7 +374,7 @@ You'll be working with lists and other enumerables a lot in Elixir so like for m
 h(Enum)
 ```
 
-But what if you have a big list of file?
+But what if you have a big list or a file?
 
 ```elixir
 1..10_000_000
