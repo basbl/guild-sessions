@@ -14,6 +14,7 @@ import IEx.Helpers
 * Built on top of the Erlang VM (BEAM)
 * Full inter-op with Erlang
 * Ruby-like syntax
+* Guaranteed immutability
 * Actor-model for concurrency
 * Everything is an expression
 * First public release in 2012
@@ -229,7 +230,7 @@ sum = &(&1 + &2)
 sum.(1, 3)
 ```
 
-An anonymous function can have multiple bodies and based on which pattern matches the body is evaluated.
+A function can have multiple bodies and based on which pattern matches the body is evaluated.
 
 ```elixir
 hello = fn
@@ -241,7 +242,7 @@ hello.("Castor")
 ```
 
 ```elixir
-hello.("Fred")
+hello.("Elixir")
 ```
 
 ## Modules
@@ -254,9 +255,7 @@ defmodule MyMath do
     a * b
   end
 end
-```
 
-```elixir
 MyMath.mul(10, 3)
 ```
 
@@ -279,16 +278,23 @@ defmodule Factorial do
   def of(0), do: 1
   def of(n), do: n * of(n - 1)
 end
+
+Factorial.of(0)
 ```
 
 ```elixir
-Factorial.of(0)
+defmodule MyEnum do
+  def map([], _func), do: []
+  def map([head | tail], func), do: [func.(head) | map(tail, func)]
+end
+
+MyEnum.map([1, 2, 3], &(&1 * &1))
 ```
 
 When pattern matching is not enough we can use guard clauses to decide which function to call based on the type and other characteristics of the arguments.
 
 ```elixir
-defmodule Bar do
+defmodule Person do
   def allowed_to_drink(%{age: age}) when age >= 18 do
     "Yes"
   end
@@ -298,7 +304,7 @@ defmodule Bar do
   end
 end
 
-Bar.allowed_to_drink(%{age: 18})
+Person.allowed_to_drink(%{age: 18})
 ```
 
 Elixir is a tail call optimized language. This means that when you call the current function again as the final action in that function no new frame will be allocated on the stack.
@@ -309,9 +315,7 @@ defmodule Factorial do
   defp _of(0, acc), do: acc
   defp _of(n, acc), do: _of(n - 1, acc * n)
 end
-```
 
-```elixir
 Factorial.of(10)
 ```
 
@@ -323,6 +327,7 @@ For example when writing nested function calls. Passing the outcome of a functio
 
 ```elixir
 collection = Enum.map([1, 2, 3], &(&1 * 2))
+
 Enum.max(collection)
 ```
 
@@ -338,27 +343,31 @@ A pipe in Elixir always inserts the result of an expression as the first paramet
 |> Enum.max()
 ```
 
-If you combine the above with what we've learned previously you can unlock some powerful ways to structure your code. The below is a simplified example of railway oriented programming
+Another pattern that is fairly common in the Elixir world is called Railway Oriented Programming. Below you'll see a simplified example of what this could look like.
 
 ```elixir
-cart = fn ->
-  {:ok,
-   [
-     %{name: "Pen", price: 10},
-     %{name: "Paper", price: 5}
-   ]}
+defmodule Cart do
+  def line_items() do
+    {:ok,
+     [
+       %{name: "Pen", price: 10},
+       %{name: "Paper", price: 5}
+     ]}
+  end
 end
 
-calculate_total = fn line_items ->
-  price =
-    get_in(line_items, [Access.all(), :price])
-    |> Enum.sum()
+defmodule Pricing do
+  def calculate_total(line_items) do
+    price =
+      get_in(line_items, [Access.all(), :price])
+      |> Enum.sum()
 
-  {:ok, price}
+    {:ok, price}
+  end
 end
 
-with {:ok, line_items} <- cart.(),
-     {:ok, total_price} <- calculate_total.(line_items) do
+with {:ok, line_items} <- Cart.line_items(),
+     {:ok, total_price} <- Pricing.calculate_total(line_items) do
   {:ok, total_price}
 else
   {:error, _} ->
@@ -366,7 +375,7 @@ else
 end
 ```
 
-## Working with Enumerables
+## Built-in Modules
 
 You'll be working with lists and other enumerables a lot in Elixir so like for most data types there are specialized modules to work with them. The following is just a small sample.
 
@@ -396,7 +405,7 @@ my_stream =
 # my_stream |> Enum.take(5)
 ```
 
-<!-- livebook:{"branch_parent_index":0} -->
+<!-- livebook:{"branch_parent_index":1} -->
 
 ## The actor model
 
@@ -509,7 +518,7 @@ There are three types of callbacks
 
 * `handle_cast` for asynchronous operations
 * `handle_call` for synchronous operations
-* `handle_info` for all other types of messages a server could receive
+* `handle_info` for all other types of messages a server could receive, e.g. from other processes
 
 ```elixir
 defmodule Counter do
@@ -766,13 +775,18 @@ There's a lot of stuff that we haven't covered. Some of the more advanced stuff 
 
 If you want to learn more about Elixir the following resources are very good introductions and both will go further and deeper than this session.
 
+### Books
+
 * Programming Elixir
 * Elixir in Action
+
+The books are available through learnerbly. There are plenty of books written about Elixir but both of these are great introductions.
+
+### Online
+
 * https://elixir-lang.org/getting-started/introduction.html
 * https://livebook.dev/
 * https://exercism.org/
-
-The books are available through learnerbly.
 
 I'm already thinking about a follow-up session that would cover a specific part of the Elixir eco-system.
 
