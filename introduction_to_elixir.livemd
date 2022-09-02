@@ -17,7 +17,7 @@ import IEx.Helpers
 * Actor-model for concurrency
 * Everything is an expression
 * First public release in 2012
-* Most recent release 1.13.4 in April 2022
+* Most recent release 1.14 released yesterday
 * Language is currently considered feature complete
 * No plans for another major release
 * Instead working on building out the eco-system (e.g. Machine learning)
@@ -580,8 +580,6 @@ defmodule Game do
     }
   end
 
-  def handle_info(_msg, state), do: {:noreply, state}
-
   def terminate(_reason, state) do
     Logger.debug("Terminating")
 
@@ -670,22 +668,24 @@ via = Game.via_tuple("my_game_1")
 :sys.get_state(via)
 ```
 
-So what happens if a game crashed?
+So what would happen if a game crashes?
 
 ```elixir
 game_pid = GenServer.whereis(via)
 
-Process.exit(game_pid, :boom)
+GenServer.call(game_pid, :boom)
 ```
 
-Our supervisor immediately restarts it and has even given it back its original process id.
+Our supervisor immediately restarts it.
 
 ```elixir
-Process.alive?(game_pid)
+Kino.Process.sup_tree(GamesSupervisor)
 ```
 
 ```elixir
-:sys.get_state(game_pid)
+Game.via_tuple("my_game_1")
+|> GenServer.whereis()
+|> :sys.get_state()
 ```
 
 ```elixir
@@ -720,13 +720,15 @@ This ia also just a small part of the tools available with OTP. There's also a b
 
 There's a lot of stuff that we haven't covered. Some of the more advanced stuff like protocols, macros, etc.
 
-If you want to learn more about Elixir the following books are very good introductions and both will go further and deeper than this session.
+If you want to learn more about Elixir the following resources are very good introductions and both will go further and deeper than this session.
 
 * Programming Elixir
 * Elixir in Action
-* https://elixir-lang.org/
+* https://elixir-lang.org/getting-started/introduction.html
+* https://livebook.dev/
+* https://exercism.org/
 
-Both are available through learnerbly.
+The books are available through learnerbly.
 
 I'm already thinking about a follow-up session that would cover a specific part of the Elixir eco-system.
 
