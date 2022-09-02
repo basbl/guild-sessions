@@ -10,7 +10,7 @@ import IEx.Helpers
 
 ## What is Elixir
 
-* Elixir is a functional programming language
+* Elixir is a dynamically typed functional programming language
 * Built on top of the Erlang VM (BEAM)
 * Full inter-op with Erlang
 * Ruby-like syntax
@@ -79,6 +79,10 @@ flowchart RL
 
 ```elixir
 1 == 1.0
+```
+
+```elixir
+1 === 1.0
 ```
 
 ```elixir
@@ -217,6 +221,12 @@ Functions are the bread and butter of Elixir and the building blocks of everythi
 sum = fn a, b -> a + b end
 
 sum.(1, 2)
+```
+
+```elixir
+sum = &(&1 + &2)
+
+sum.(1, 3)
 ```
 
 An anonymous function can have multiple bodies and based on which pattern matches the body is evaluated.
